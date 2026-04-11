@@ -54,6 +54,14 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
     super.dispose();
   }
 
+  void _handleBack() {
+    if (widget.onBackHome != null) {
+      widget.onBackHome!();
+    } else {
+      Navigator.maybePop(context);
+    }
+  }
+
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty) return;
 
@@ -61,9 +69,7 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
 
     setState(() {
       _messages.add({'text': text, 'isMe': true});
-
       _messages.add({'text': _getBotResponse(text), 'isMe': false});
-
       _messageController.clear();
     });
 
@@ -201,168 +207,172 @@ class _ChatBotScreenState extends State<ChatBotScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FC),
-      appBar: AppBar(
-        elevation: 0,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _handleBack();
+        }
+      },
+      child: Scaffold(
         backgroundColor: const Color(0xFFF4F8FC),
-        foregroundColor: Colors.black,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () {
-            if (widget.onBackHome != null) {
-              widget.onBackHome!();
-            }
-          },
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: const Color(0xFFF4F8FC),
+          foregroundColor: Colors.black,
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded),
+            onPressed: _handleBack,
+          ),
+          title: const Text(
+            '스미싱 대응 AI 챗봇',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
-        title: const Text(
-          '스미싱 대응 AI 챗봇',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
-                ),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Colors.white24,
-                    child: Icon(
-                      Icons.shield_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
                   ),
-                  SizedBox(width: 12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: Colors.white24,
+                      child: Icon(
+                        Icons.shield_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '보안 상담 활성화',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 17,
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            '의심 문자 대응, 신고 안내, 클릭 후 조치 방법을 빠르게 안내합니다.',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13.5,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  return _buildMessageBubble(_messages[index]);
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildQuickAction('링크를 눌렀어요', Icons.link_off),
+                    _buildQuickAction('신고 방법 알려주세요', Icons.campaign_outlined),
+                    _buildQuickAction('의심 문자 확인방법', Icons.sms_outlined),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
+              child: Row(
+                children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '보안 상담 활성화',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 17,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: const Color(0xFFD6E0EA)),
+                      ),
+                      child: TextField(
+                        controller: _messageController,
+                        style: const TextStyle(
+                          fontSize: 15.5,
+                          color: Color(0xFF0F172A),
+                        ),
+                        minLines: 1,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          hintText: '의심 문자 내용이나 궁금한 점을 입력하세요',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 14.5,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
                           ),
                         ),
-                        SizedBox(height: 6),
-                        Text(
-                          '의심 문자 대응, 신고 안내, 클릭 후 조치 방법을 빠르게 안내합니다.',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                return _buildMessageBubble(_messages[index]);
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _buildQuickAction('링크를 눌렀어요', Icons.link_off),
-                  _buildQuickAction('신고 방법 알려주세요', Icons.campaign_outlined),
-                  _buildQuickAction('의심 문자 확인방법', Icons.sms_outlined),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 54,
+                    height: 54,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
+                      ),
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFD6E0EA)),
                     ),
-                    child: TextField(
-                      controller: _messageController,
-                      style: const TextStyle(
-                        fontSize: 15.5,
-                        color: Color(0xFF0F172A),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 24,
                       ),
-                      minLines: 1,
-                      maxLines: 4,
-                      decoration: const InputDecoration(
-                        hintText: '의심 문자 내용이나 궁금한 점을 입력하세요',
-                        hintStyle: TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: 14.5,
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                      ),
-                      onSubmitted: (_) => _sendMessage(),
+                      onPressed: _sendMessage,
                     ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  width: 54,
-                  height: 54,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1565C0), Color(0xFF1E88E5)],
-                    ),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.send_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    onPressed: _sendMessage,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

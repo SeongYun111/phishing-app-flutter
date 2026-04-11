@@ -21,6 +21,12 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
+  void dispose() {
+    appState.removeListener(() => setState(() {}));
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '스미싱 탐지기',
