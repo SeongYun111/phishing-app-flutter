@@ -396,7 +396,8 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        toolbarHeight: 130, //앱바크기수정
+        automaticallyImplyLeading: false,
+        toolbarHeight: 130,
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
@@ -404,7 +405,7 @@ class _MainScreenState extends State<MainScreen> {
         centerTitle: true,
         title: Image.asset(
           'assets/images/logo.png',
-          height: 200, //로고크기수정
+          height: 200,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.high,
         ),
