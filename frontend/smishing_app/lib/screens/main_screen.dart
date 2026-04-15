@@ -257,10 +257,7 @@ class _MainScreenState extends State<MainScreen> {
             title: const Text(
               '검사 횟수 초과',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             content: const Text(
               '비회원은 3회까지만 검사할 수 있어요.\n로그인 후 무제한으로 이용하세요!',
@@ -291,10 +288,7 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                   child: const Text(
                     '로그인하러 가기',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -311,10 +305,7 @@ class _MainScreenState extends State<MainScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    '닫기',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  child: const Text('닫기', style: TextStyle(fontSize: 16)),
                 ),
               ),
             ],
@@ -405,7 +396,7 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        toolbarHeight: 80,//앱바크기수정 
+        toolbarHeight: 130, //앱바크기수정
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.white,
         elevation: 0,
@@ -528,8 +519,7 @@ class _MainScreenState extends State<MainScreen> {
                     maxLines: 5,
                     style: const TextStyle(fontSize: 18),
                     decoration: InputDecoration(
-                      hintText:
-                          '예) 택배 미수령 안내입니다. 확인하세요.\nhttps://example.com',
+                      hintText: '예) 택배 미수령 안내입니다. 확인하세요.\nhttps://example.com',
                       hintStyle: const TextStyle(
                         fontSize: 16,
                         color: Color(0xFFBDBDBD),
