@@ -1,10 +1,11 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import 'result_screen.dart';
 import 'login_screen.dart';
 import '../models/scan_history.dart';
 import '../services/history_service.dart';
+import '../services/api_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -240,6 +241,19 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
+    final RegExp urlRegex = RegExp("(https?:\\/\\/|www\\.)[^\\s<>\\\"]+");
+    final Match? urlMatch = urlRegex.firstMatch(inputText);
+    if (urlMatch == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('URL이 포함된 텍스트를 입력해주세요')),
+      );
+      return;
+    }
+
+    final String detectedUrl = urlMatch.group(0)!.startsWith('www.')
+        ? 'https://${urlMatch.group(0)!}'
+        : urlMatch.group(0)!;
+
     if (!appState.isLoggedIn) {
       if (!appState.canUseGuestScan) {
         showDialog(
@@ -319,12 +333,42 @@ class _MainScreenState extends State<MainScreen> {
 
     setState(() => _isLoading = true);
 
-    await Future.delayed(const Duration(seconds: 2));
+    String resultLabel = '二쇱쓽';
+    double score = 50.0;
+    String reason = 'Threat verification is currently unavailable.';
+    String action = 'Try again later and avoid clicking unknown links now.';
 
-    final String resultLabel = '위험';
-    final double score = 85.0;
-    final String reason = '의심스러운 URL과 키워드가 포함되어 있습니다.';
-    final String action = '해당 링크를 클릭하지 마시고 발신자를 확인하세요.';
+    try {
+      final response = await ApiService.checkUrl(
+        url: detectedUrl,
+        sourceApp: 'manual_input',
+        messageText: inputText,
+      );
+
+      final verdict = (response['finalVerdict'] ?? 'unknown').toString();
+
+      if (verdict == 'malicious') {
+        resultLabel = '?꾪뿕';
+        score = 90.0;
+        reason = 'Google Safe Browsing classified this URL as malicious.';
+        action = 'Do not open the link. Block sender and delete the message.';
+      } else if (verdict == 'suspicious') {
+        resultLabel = '二쇱쓽';
+        score = 65.0;
+        reason = 'This URL is suspicious and needs additional verification.';
+        action = 'Verify sender/channel before opening the link.';
+      } else if (verdict == 'safe') {
+        resultLabel = '?덉쟾';
+        score = 15.0;
+        reason = 'No immediate threat was detected by Safe Browsing.';
+        action = 'Stay cautious and avoid entering sensitive information.';
+      }
+    } catch (_) {
+      resultLabel = '二쇱쓽';
+      score = 50.0;
+      reason = 'API request failed while verifying the URL.';
+      action = 'Check network/server status and try again.';
+    }
 
     final history = ScanHistory(
       url: inputText,
@@ -352,7 +396,6 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-
   Future<void> _clearAllHistory() async {
     await HistoryService.clearHistory();
     await _loadHistory();
@@ -549,7 +592,7 @@ class _MainScreenState extends State<MainScreen> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         Text(
-                          '남은 검사 횟수 $usedCount/3회',
+                          '사용 검사 횟수 $usedCount/3회',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -703,3 +746,5 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 }
+
+

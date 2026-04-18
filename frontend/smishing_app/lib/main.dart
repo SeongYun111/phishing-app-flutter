@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+
 import 'app_state.dart';
 import 'screens/access_screen.dart';
 
@@ -14,22 +15,28 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  void _onAppStateChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    appState.addListener(() => setState(() {}));
+    appState.addListener(_onAppStateChanged);
   }
 
   @override
   void dispose() {
-    appState.removeListener(() => setState(() {}));
+    appState.removeListener(_onAppStateChanged);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '스미싱 탐지기',
+      title: 'Smishing App',
       debugShowCheckedModeBanner: false,
       home: const AccessScreen(),
       theme: ThemeData(
@@ -49,9 +56,9 @@ class _MyAppState extends State<MyApp> {
       themeMode: appState.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       builder: (context, child) {
         return MediaQuery(
-          data: MediaQuery.of(
-            context,
-          ).copyWith(textScaler: TextScaler.linear(appState.fontSize)),
+          data: MediaQuery.of(context).copyWith(
+            textScaleFactor: appState.fontSize,
+          ),
           child: child!,
         );
       },
