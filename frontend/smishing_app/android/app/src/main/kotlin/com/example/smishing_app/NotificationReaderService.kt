@@ -1,15 +1,26 @@
 package com.example.smishing_app
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.text.TextUtils
+import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.util.Log
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -24,10 +35,11 @@ import kotlin.math.roundToInt
 class NotificationReaderService : NotificationListenerService() {
     private val worker = Executors.newSingleThreadExecutor()
     private val recentScanCache = mutableMapOf<String, Long>()
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var overlayView: View? = null
 
     override fun onCreate() {
         super.onCreate()
-        createRiskNotificationChannel()
     }
 
     override fun onListenerConnected() {
@@ -69,6 +81,7 @@ class NotificationReaderService : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        mainHandler.post { removeOverlayWarning() }
         worker.shutdownNow()
         super.onDestroy()
     }
@@ -188,7 +201,7 @@ class NotificationReaderService : NotificationListenerService() {
             Log.d(TAG, "scan result grade=$grade score=$score")
 
             if (shouldShowRiskAlert(grade, score)) {
-                showRiskNotification(score)
+                showRiskWarning(grade, score, content)
             }
         } catch (e: Exception) {
             Log.e(TAG, "scan request failed: ${e.message}", e)
@@ -220,72 +233,159 @@ class NotificationReaderService : NotificationListenerService() {
         }
     }
 
-    private fun createRiskNotificationChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
-        val channel = NotificationChannel(
-            RISK_CHANNEL_ID,
-            "스미싱 위험 알림",
-            NotificationManager.IMPORTANCE_HIGH,
-        ).apply {
-            description = "스미싱 위험 알림을 표시합니다."
+    private fun showRiskWarning(grade: String, score: Int, content: String) {
+        mainHandler.post {
+            if (canShowOverlay()) {
+                showOverlayWarning(score, content)
+            } else {
+                showRiskWarningDialog(grade, score, content)
+            }
         }
-
-        notificationManager.createNotificationChannel(channel)
     }
 
-    private fun showRiskNotification(score: Int) {
-        createRiskNotificationChannel()
+    private fun canShowOverlay(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+    }
 
-        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+    private fun showOverlayWarning(score: Int, content: String) {
+        try {
+            removeOverlayWarning()
+
+            val view = createOverlayView(score, content)
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                overlayWindowType(),
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                android.graphics.PixelFormat.TRANSLUCENT,
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+
+            windowManager.addView(view, params)
+            overlayView = view
+            mainHandler.postDelayed({ removeOverlayWarning() }, OVERLAY_AUTO_CLOSE_MS)
+            Log.d(TAG, "overlay warning shown")
+        } catch (e: Exception) {
+            Log.e(TAG, "failed to show overlay warning", e)
         }
-        val pendingIntent = launchIntent?.let {
-            PendingIntent.getActivity(
-                this,
-                0,
-                it,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    }
+
+    private fun createOverlayView(score: Int, content: String): View {
+        return LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(22), dp(22), dp(22), dp(22))
+            setBackgroundColor(Color.argb(110, 0, 0, 0))
+
+            addView(
+                LinearLayout(context).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(22), dp(20), dp(22), dp(18))
+                    background = GradientDrawable().apply {
+                        setColor(Color.WHITE)
+                        cornerRadius = dp(20).toFloat()
+                    }
+
+                    addView(
+                        TextView(context).apply {
+                            text = "스미싱 의심 알림"
+                            setTextColor(Color.rgb(198, 40, 40))
+                            textSize = 22f
+                            typeface = Typeface.DEFAULT_BOLD
+                        },
+                    )
+                    addView(
+                        TextView(context).apply {
+                            text = "위험도 ${score}점"
+                            setTextColor(Color.rgb(33, 33, 33))
+                            textSize = 18f
+                            typeface = Typeface.DEFAULT_BOLD
+                            setPadding(0, dp(12), 0, 0)
+                        },
+                    )
+                    addView(
+                        TextView(context).apply {
+                            text = "이 알림은 스미싱 위험이 있습니다. 링크를 열지 마세요."
+                            setTextColor(Color.rgb(66, 66, 66))
+                            textSize = 15f
+                            setPadding(0, dp(10), 0, 0)
+                        },
+                    )
+                    addView(
+                        TextView(context).apply {
+                            text = content
+                            setTextColor(Color.rgb(97, 97, 97))
+                            textSize = 14f
+                            maxLines = 3
+                            ellipsize = TextUtils.TruncateAt.END
+                            setPadding(0, dp(12), 0, 0)
+                        },
+                    )
+                    addView(
+                        Button(context).apply {
+                            text = "닫기"
+                            setOnClickListener { removeOverlayWarning() }
+                        },
+                    )
+                },
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    leftMargin = dp(14)
+                    rightMargin = dp(14)
+                },
             )
         }
-        val message = "위험도 ${score}점: 링크를 열지 마세요."
-
-        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(this, RISK_CHANNEL_ID)
-        } else {
-            @Suppress("DEPRECATION")
-            Notification.Builder(this)
-        }
-
-        builder
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("스미싱 의심 알림")
-            .setContentText(message)
-            .setStyle(Notification.BigTextStyle().bigText(message))
-            .setAutoCancel(true)
-            .setPriority(Notification.PRIORITY_HIGH)
-
-        if (pendingIntent != null) {
-            builder.setContentIntent(pendingIntent)
-        }
-
-        notificationManager.notify(RISK_NOTIFICATION_ID, builder.build())
-        Log.d(TAG, "warning notification shown")
     }
 
-    private val notificationManager: NotificationManager
-        get() = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private fun removeOverlayWarning() {
+        val view = overlayView ?: return
+        try {
+            windowManager.removeView(view)
+        } catch (_: Exception) {
+        } finally {
+            overlayView = null
+        }
+    }
+
+    private fun overlayWindowType(): Int {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+        } else {
+            @Suppress("DEPRECATION")
+            WindowManager.LayoutParams.TYPE_PHONE
+        }
+    }
+
+    private val windowManager: WindowManager
+        get() = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
+    }
+
+    private fun showRiskWarningDialog(grade: String, score: Int, content: String) {
+        val intent = Intent(this, RiskWarningActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra(RiskWarningActivity.EXTRA_GRADE, grade)
+            putExtra(RiskWarningActivity.EXTRA_SCORE, score)
+            putExtra(RiskWarningActivity.EXTRA_CONTENT, content)
+        }
+        startActivity(intent)
+        Log.d(TAG, "risk warning dialog shown")
+    }
 
     companion object {
         private const val TAG = "NotificationReader"
         private const val DEVICE_ID = "android-notification-listener"
         private const val SCAN_TEXT_URL = "https://api.maknae.synology.me/api/scans/text"
-        private const val RISK_CHANNEL_ID = "smishing_risk_alerts"
-        private const val RISK_NOTIFICATION_ID = 20260612
         private const val MAX_CONTENT_LENGTH = 4000
         private const val MIN_CONTENT_LENGTH = 8
-        private const val MIN_ALERT_SCORE = 70
+        private const val MIN_ALERT_SCORE = 65
         private const val DUPLICATE_WINDOW_MS = 60_000L
+        private const val OVERLAY_AUTO_CLOSE_MS = 15_000L
         private const val ADB_TEST_PACKAGE = "com.android.shell"
 
         private val ALLOWED_PACKAGES = setOf(
